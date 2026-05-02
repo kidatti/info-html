@@ -908,17 +908,16 @@ async function fetchFX() {
   const el = document.getElementById('fx-body');
   try {
     const [latestRes, prevRes] = await Promise.all([
-      fetch('https://api.frankfurter.dev/v1/latest?from=JPY&to=USD,EUR,GBP,CNY,KRW,AUD,CHF'),
-      fetch(`https://api.frankfurter.dev/v1/${getPrevBusinessDay()}?from=JPY&to=USD,EUR,GBP,CNY,KRW,AUD,CHF`),
+      fetch('https://api.frankfurter.dev/v1/latest?from=JPY&to=USD,EUR,GBP,AUD,CHF'),
+      fetch(`https://api.frankfurter.dev/v1/${getPrevBusinessDay()}?from=JPY&to=USD,EUR,GBP,AUD,CHF`),
     ]);
     const latest = await latestRes.json();
     const prev = await prevRes.json();
 
     const names = {
-      USD:'米ドル',EUR:'ユーロ',GBP:'英ポンド',
-      CNY:'人民元',KRW:'韓国ウォン',AUD:'豪ドル',CHF:'スイスフラン'
+      USD:'米ドル',EUR:'ユーロ',GBP:'英ポンド', AUD:'豪ドル',CHF:'スイスフラン'
     };
-    const flags = {USD:'🇺🇸',EUR:'🇪🇺',GBP:'🇬🇧',CNY:'🇨🇳',KRW:'🇰🇷',AUD:'🇦🇺',CHF:'🇨🇭'};
+    const flags = {USD:'🇺🇸',EUR:'🇪🇺',GBP:'🇬🇧',AUD:'🇦🇺',CHF:'🇨🇭'};
 
     let html = '';
     for (const [cur, rate] of Object.entries(latest.rates)) {
