@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Info Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a2736">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  :root,html[data-theme="dark"]{
+    --bg:#0f1923;--card:#1a2736;--card-hover:#1f3044;
+    --text:#e0e6ed;--sub:#8899aa;--accent:#1a8fc4;
+    --green:#66bb6a;--red:#ef5350;--orange:#ffa726;
+    --border:#2a3a4a;--radius:12px;
+    --header-bg:linear-gradient(135deg,#1a2736 0%,#253545 100%);
+    --toast-bg:#1e3a50;--shadow:rgba(0,0,0,.5);
+    --item-bg:rgba(255,255,255,.04);--item-border:rgba(255,255,255,.06);
+    --domain-bg:rgba(255,255,255,.08);
+  }
+  html[data-theme="light"]{
+    --bg:#f0f2f5;--card:#ffffff;--card-hover:#f8f9fa;
+    --text:#1a1a1a;--sub:#6b7280;--accent:#0077b6;
+    --green:#16a34a;--red:#dc2626;--orange:#ea580c;
+    --border:#d1d5db;--radius:12px;
+    --header-bg:linear-gradient(135deg,#ffffff 0%,#f0f2f5 100%);
+    --toast-bg:#ffffff;--shadow:rgba(0,0,0,.12);
+    --item-bg:rgba(0,0,0,.02);--item-border:rgba(0,0,0,.06);
+    --domain-bg:rgba(0,0,0,.05);
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.6;
+    min-height:100vh;padding:0;
+  }
+  header{
+    background:var(--header-bg);
+    border-bottom:1px solid var(--border);
+    padding:6px 24px;display:flex;align-items:center;
+    justify-content:space-between;flex-wrap:wrap;gap:8px;
+    position:sticky;top:0;z-index:100;
+  }
+  header h1{font-size:.8rem;font-weight:600;letter-spacing:.5px;color:var(--sub)}
+  header h1 span{color:var(--accent)}
+  #clock{font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
+    gap:12px;padding:12px;
+  }
+  .card{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:8px;overflow:hidden;
+    transition:border-color .2s;
+  }
+  .card:hover{border-color:var(--accent)}
+  .card-header{
+    padding:10px 14px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .card-header h2{font-size:.95rem;font-weight:600;display:flex;align-items:center;gap:8px}
+  .card-header .badge{
+    font-size:.7rem;padding:2px 8px;border-radius:10px;
+    background:color-mix(in srgb, var(--accent) 15%, transparent);color:var(--accent);
+  }
+  .card-body{padding:12px 14px}
+  .updated-at{font-size:.7rem;color:var(--sub);font-weight:400}
+  .card-full{grid-column:1/-1}
+
+  /* Weather */
+  .weather-main{display:flex;align-items:center;gap:20px;margin-bottom:16px}
+  .weather-temp{font-size:3rem;font-weight:700;line-height:1}
+  .weather-desc{color:var(--sub);font-size:.9rem;margin-top:4px}
+  .weather-icon{font-size:3.5rem;line-height:1}
+  .weather-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+  .weather-detail{
+    background:var(--item-bg);padding:10px 12px;border-radius:8px;
+    font-size:.85rem;
+  }
+  .weather-detail .label{color:var(--sub);font-size:.75rem;margin-bottom:2px}
+  .weather-forecast{display:flex;gap:8px;margin-top:14px;overflow-x:auto;padding-bottom:4px}
+  .forecast-item{
+    flex:0 0 auto;text-align:center;padding:8px 12px;
+    background:var(--item-bg);border-radius:8px;font-size:.8rem;
+    min-width:64px;
+  }
+  .forecast-item .time{color:var(--sub);font-size:.7rem}
+  .forecast-item .temp{font-weight:600;margin:4px 0}
+
+  /* Exchange */
+  .rate-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 0;border-bottom:1px solid var(--item-border);
+  }
+  .rate-row:last-child{border:none}
+  .rate-pair{font-weight:600;font-size:.9rem}
+  .rate-value{font-variant-numeric:tabular-nums;font-size:.95rem}
+  .rate-change{font-size:.8rem;margin-left:8px}
+  .rate-change.up{color:var(--green)}
+  .rate-change.down{color:var(--red)}
+
+  /* Stock / Crypto */
+  .stock-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 0;border-bottom:1px solid var(--item-border);
+  }
+  .stock-row:last-child{border:none}
+  .stock-name{font-weight:600;font-size:.9rem}
+  .stock-symbol{color:var(--sub);font-size:.75rem;margin-top:1px}
+  .stock-price{text-align:right;font-variant-numeric:tabular-nums}
+  .stock-price .value{font-size:.95rem;font-weight:600}
+  .stock-price .change{font-size:.8rem;display:block}
+  .stock-price .change.up{color:var(--green)}
+  .stock-price .change.down{color:var(--red)}
+
+  /* News */
+  .news-item{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding:6px 0;border-bottom:1px solid var(--item-border);
+  }
+  .news-item:last-child{border:none}
+  .news-item a{
+    color:var(--text);text-decoration:none;font-size:.85rem;
+    font-weight:500;line-height:1.4;min-width:0;
+    transition:color .2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .news-item a:hover{color:var(--accent)}
+  .news-meta{color:var(--sub);font-size:.72rem;display:flex;gap:8px;flex-shrink:0;white-space:nowrap}
+  .news-domain{
+    background:var(--domain-bg);padding:1px 6px;border-radius:4px;
+    text-decoration:none;color:var(--sub);transition:color .2s;
+  }
+  a.news-domain:hover{color:var(--accent)}
+
+  /* Feed checkboxes */
+  .feed-checks{display:flex;flex-wrap:wrap;gap:6px;padding:10px 18px;border-bottom:1px solid var(--border);transition:all .2s}
+  .feed-checks.hidden{display:none}
+  .feed-check{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.78rem;color:var(--sub);transition:color .2s}
+  .feed-check:hover{color:var(--text)}
+  .feed-check input{accent-color:var(--accent);cursor:pointer;margin:0}
+  .feed-check input:checked+span{color:var(--text)}
+  .count-select{
+    background:var(--bg);color:var(--sub);border:1px solid var(--border);
+    padding:2px 6px;border-radius:5px;font-size:.72rem;cursor:pointer;outline:none;
+  }
+  .count-select:focus{border-color:var(--accent)}
+  .toggle-btn{
+    background:none;border:none;color:var(--sub);
+    cursor:pointer;font-size:1.1rem;padding:0;line-height:1;
+    transition:color .2s;flex-shrink:0;
+  }
+  .toggle-btn:hover{color:var(--accent)}
+  .toggle-btn.active{color:var(--accent)}
+
+  /* Interval select */
+  .interval-select{
+    background:var(--bg);color:var(--sub);border:1px solid var(--border);
+    padding:2px 6px;border-radius:5px;font-size:.72rem;cursor:pointer;outline:none;
+  }
+  .interval-select:focus{border-color:var(--accent)}
+
+  /* Toast */
+  #toast-container{
+    position:fixed;top:44px;right:12px;z-index:200;
+    display:flex;flex-direction:column;gap:8px;max-width:380px;pointer-events:none;
+  }
+  .toast{
+    background:var(--toast-bg);border:1px solid var(--accent);border-radius:8px;
+    padding:10px 14px;color:var(--text);font-size:.82rem;
+    box-shadow:0 4px 20px var(--shadow);pointer-events:auto;
+    animation:toast-in .3s ease-out;position:relative;
+  }
+  .toast.out{animation:toast-out .3s ease-in forwards}
+  .toast-source{color:var(--accent);font-weight:600;font-size:.72rem;margin-bottom:2px}
+  .toast a{color:var(--text);text-decoration:none}
+  .toast a:hover{color:var(--accent)}
+  .toast-time{color:var(--sub);font-size:.68rem;margin-top:3px}
+  @keyframes toast-in{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes toast-out{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}
+
+  /* Settings modal */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;
+    align-items:center;justify-content:center;
+  }
+  .modal-overlay.open{display:flex}
+  .modal{
+    background:var(--card);border:1px solid var(--border);border-radius:10px;
+    padding:20px 24px;width:90%;max-width:420px;box-shadow:0 8px 30px var(--shadow);
+  }
+  .modal h3{font-size:.95rem;margin-bottom:12px}
+  .modal label{display:block;font-size:.8rem;color:var(--sub);margin-bottom:4px}
+  .modal input[type="text"],.modal input[type="password"]{
+    width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);
+    padding:6px 10px;border-radius:6px;font-size:.82rem;margin-bottom:12px;outline:none;
+  }
+  .modal input:focus{border-color:var(--accent)}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end}
+  .modal-actions button{
+    padding:6px 16px;border-radius:6px;font-size:.8rem;cursor:pointer;border:1px solid var(--border);
+    background:none;color:var(--text);transition:all .2s;
+  }
+  .modal-actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .modal-actions button:hover{opacity:.85}
+  .proxy-status{font-size:.7rem;margin-bottom:8px}
+  .proxy-status.ok{color:var(--green)}
+  .proxy-status.ng{color:var(--red)}
+
+  /* Loading / Error */
+  .loading{text-align:center;padding:30px;color:var(--sub)}
+  .loading::after{
+    content:"";display:block;width:28px;height:28px;margin:10px auto 0;
+    border:3px solid var(--border);border-top-color:var(--accent);
+    border-radius:50%;animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .error{text-align:center;padding:20px;color:var(--red);font-size:.85rem}
+
+  /* Footer */
+  footer{
+    text-align:center;padding:10px 12px;color:var(--sub);font-size:.7rem;
+    border-top:1px solid var(--border);margin-top:8px;
+  }
+  footer button{
+    background:none;border:1px solid var(--border);color:var(--accent);
+    padding:4px 12px;border-radius:5px;cursor:pointer;font-size:.7rem;
+    margin-top:4px;transition:background .2s;
+  }
+  footer button:hover{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+
+  /* Responsive */
+  @media(max-width:480px){
+    .grid{padding:8px;gap:8px;grid-template-columns:1fr}
+    header{padding:12px 16px}
+    .weather-temp{font-size:2.2rem}
+    .weather-icon{font-size:2.5rem}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;width:100%">
+    <div id="ip-info" style="font-size:.8rem;color:var(--sub)"></div>
+    <div id="header-weather" style="font-size:.85rem;color:var(--sub)"></div>
+    <div id="clock" style="margin-left:auto"></div>
+    <button id="theme-toggle" aria-label="テーマ切替" style="background:none;border:none;cursor:pointer;padding:0;line-height:1"><svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg><svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+    <button id="settings-btn" aria-label="設定" style="background:none;border:none;cursor:pointer;padding:0;line-height:1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </div>
+</header>
+
+<div id="toast-container"></div>
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 設定</h3>
+    <h4 style="font-size:.85rem;margin:0 0 8px;color:var(--sub)">Proxy <a href="https://github.com/kidatti/proxy-cloudflare-workers" target="_blank" rel="noopener" style="font-size:.7rem;font-weight:normal;color:var(--accent)">セットアップ</a></h4>
+    <label for="proxy-url">Proxy URL</label>
+    <input type="text" id="proxy-url" placeholder="https://proxy-cloudflare-workers.hogehoge.workers.dev/?url=">
+    <label for="proxy-key">API Key (Authorization: Bearer)</label>
+    <div style="display:flex;gap:4px;align-items:center;margin-bottom:12px">
+      <input type="password" id="proxy-key" placeholder="APIキーを入力" style="margin-bottom:0;flex:1">
+      <button id="proxy-key-toggle" type="button" onclick="toggleKeyVisibility()" style="background:none;border:none;cursor:pointer;padding:0;line-height:1;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    </div>
+    <div class="proxy-status" id="proxy-status"></div>
+    <div class="modal-actions" style="margin-bottom:16px">
+      <button onclick="testProxy()">テスト</button>
+      <button class="primary" onclick="saveProxy()">保存</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:0 0 16px">
+    <h4 style="font-size:.85rem;margin:0 0 8px;color:var(--sub)">データ</h4>
+    <div class="modal-actions" style="justify-content:flex-start">
+      <button onclick="resetSettings()" style="color:var(--red);border-color:var(--red)">設定を初期化</button>
+      <span style="flex:1"></span>
+      <button onclick="closeSettings()">閉じる</button>
+    </div>
+  </div>
+</div>
+<div class="grid">
+  <!-- JP News -->
+  <div class="card card-full">
+    <div class="card-header">
+      <h2>&#128240; News<span class="updated-at" id="jp-news-updated"></span></h2>
+      <div style="display:flex;align-items:center;gap:6px">
+        <select id="jp-news-count" class="count-select">
+          <option value="10">10件</option>
+          <option value="20" selected>20件</option>
+          <option value="40">40件</option>
+          <option value="80">80件</option>
+          <option value="0">すべて</option>
+        </select>
+        <select class="interval-select" data-section="news">
+          <option value="60">1分</option>
+          <option value="180">3分</option>
+          <option value="300" selected>5分</option>
+          <option value="600">10分</option>
+          <option value="0">手動</option>
+        </select>
+        <button class="toggle-btn" id="jp-feed-toggle" aria-label="ソース設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      </div>
+    </div>
+    <div class="feed-checks hidden" id="jp-feed-checks">
+      <label class="feed-check"><input type="checkbox" value="yahoo-top" checked><span>Yahoo! 主要</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-domestic"><span>Yahoo! 国内</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-world"><span>Yahoo! 国際</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-business"><span>Yahoo! 経済</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-entertainment"><span>Yahoo! エンタメ</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-sports"><span>Yahoo! スポーツ</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-it"><span>Yahoo! IT</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-science"><span>Yahoo! 科学</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-life"><span>Yahoo! ライフ</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-local"><span>Yahoo! 地域</span></label>
+      <label class="feed-check"><input type="checkbox" value="reuters-top" checked><span>ロイター</span></label>
+      <label class="feed-check"><input type="checkbox" value="nikkei-news" checked><span>日経 速報</span></label>
+      <label class="feed-check"><input type="checkbox" value="nikkei-business"><span>日経 ビジネス</span></label>
+      <label class="feed-check"><input type="checkbox" value="nikkei-international"><span>日経 国際</span></label>
+      <label class="feed-check"><input type="checkbox" value="yomiuri-politics"><span>読売 政治</span></label>
+      <label class="feed-check"><input type="checkbox" value="yomiuri-economy"><span>読売 経済</span></label>
+      <label class="feed-check"><input type="checkbox" value="yomiuri-sports"><span>読売 スポーツ</span></label>
+      <label class="feed-check"><input type="checkbox" value="sankei-politics"><span>産経 政治</span></label>
+      <label class="feed-check"><input type="checkbox" value="sankei-economy"><span>産経 経済</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-all"><span>Impress 総合</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-pc"><span>PC Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-dc"><span>DC Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-ktai"><span>ケータイ Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-cloud"><span>クラウド Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-internet"><span>INTERNET Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-game"><span>Game Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-av"><span>AV Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-travel"><span>トラベル Watch</span></label>
+    </div>
+    <div class="card-body" id="jp-news-body">
+      <div class="loading">ニュースを取得中...</div>
+    </div>
+  </div>
+
+  <!-- Tech News -->
+  <div class="card card-full">
+    <div class="card-header">
+      <h2>&#128187; Tech News<span class="updated-at" id="tech-news-updated"></span></h2>
+      <div style="display:flex;align-items:center;gap:6px">
+        <select id="tech-news-count" class="count-select">
+          <option value="10">10件</option>
+          <option value="20" selected>20件</option>
+          <option value="40">40件</option>
+          <option value="80">80件</option>
+          <option value="0">すべて</option>
+        </select>
+        <select class="interval-select" data-section="tech">
+          <option value="300">5分</option>
+          <option value="600" selected>10分</option>
+          <option value="1800">30分</option>
+          <option value="0">手動</option>
+        </select>
+        <button class="toggle-btn" id="tech-feed-toggle" aria-label="ソース設定"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      </div>
+    </div>
+    <div class="feed-checks hidden" id="tech-feed-checks">
+      <label class="feed-check"><input type="checkbox" value="nikkei-technology" checked><span>日経 テクノロジー</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-it"><span>Yahoo! IT</span></label>
+      <label class="feed-check"><input type="checkbox" value="yahoo-science"><span>Yahoo! 科学</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-all"><span>Impress 総合</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-pc"><span>PC Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-cloud"><span>クラウド Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="impress-internet"><span>INTERNET Watch</span></label>
+      <label class="feed-check"><input type="checkbox" value="hacker-news" checked><span>Hacker News</span></label>
+    </div>
+    <div class="card-body" id="tech-news-body">
+      <div class="loading">ニュースを取得中...</div>
+    </div>
+  </div>
+
+  <!-- Weather -->
+  <div class="card">
+    <div class="card-header">
+      <h2>&#9729; 天気予報<span class="badge" id="weather-location">東京</span></h2>
+      <div style="display:flex;align-items:center;gap:6px">
+        <select class="interval-select" data-section="weather">
+          <option value="600">10分</option>
+          <option value="1800" selected>30分</option>
+          <option value="3600">1時間</option>
+          <option value="0">手動</option>
+        </select>
+        <span class="updated-at" id="weather-updated"></span>
+      </div>
+    </div>
+    <div class="card-body" id="weather-body">
+      <div class="loading">天気情報を取得中...</div>
+    </div>
+  </div>
+
+  <!-- Exchange Rates -->
+  <div class="card">
+    <div class="card-header">
+      <h2>&#128177; 為替レート<span class="badge">JPY基準</span></h2>
+      <div style="display:flex;align-items:center;gap:6px">
+        <select class="interval-select" data-section="fx">
+          <option value="300">5分</option>
+          <option value="600" selected>10分</option>
+          <option value="1800">30分</option>
+          <option value="0">手動</option>
+        </select>
+        <span class="updated-at" id="fx-updated"></span>
+      </div>
+    </div>
+    <div class="card-body" id="fx-body">
+      <div class="loading">為替情報を取得中...</div>
+    </div>
+  </div>
+
+  <!-- Crypto / Market -->
+  <div class="card">
+    <div class="card-header">
+      <h2>&#128200; マーケット<span class="badge">暗号資産</span></h2>
+      <div style="display:flex;align-items:center;gap:6px">
+        <select class="interval-select" data-section="market">
+          <option value="60">1分</option>
+          <option value="300" selected>5分</option>
+          <option value="600">10分</option>
+          <option value="0">手動</option>
+        </select>
+        <span class="updated-at" id="market-updated"></span>
+      </div>
+    </div>
+    <div class="card-body" id="market-body">
+      <div class="loading">マーケット情報を取得中...</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div>データは各種無料APIから取得しています</div>
+  <div style="margin-top:4px">天気: Open-Meteo / 為替: Frankfurter / マーケット: CoinGecko / ニュース: ロイター, 日経, 読売, 産経, Hacker News</div>
+  <button onclick="refreshAll()">&#8635; すべて更新</button>
+</footer>
+
+<script>
+// ===== Clock =====
+// ===== Proxy settings =====
+function getProxyUrl() { return localStorage.getItem('proxyUrl') || ''; }
+function getProxyKey() { return localStorage.getItem('proxyKey') || ''; }
+
+function proxyFetch(url) {
+  const key = getProxyKey();
+  const proxyUrl = getProxyUrl();
+  if (key && proxyUrl) {
+    return fetch(proxyUrl + encodeURIComponent(url), {
+      headers: { 'Authorization': 'Bearer ' + key }
+    });
+  }
+  return fetch(url);
+}
+
+// Settings modal
+document.getElementById('settings-btn').addEventListener('click', () => {
+  document.getElementById('proxy-url').value = getProxyUrl();
+  document.getElementById('proxy-key').value = getProxyKey();
+  document.getElementById('proxy-status').textContent = '';
+  document.getElementById('settings-modal').classList.add('open');
+});
+function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+document.getElementById('settings-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+function resetSettings() {
+  if (!confirm('すべての設定を初期化します。よろしいですか？')) return;
+  localStorage.removeItem('dashSettings');
+  localStorage.removeItem('proxyUrl');
+  localStorage.removeItem('proxyKey');
+  localStorage.removeItem('theme');
+  closeSettings();
+  location.reload();
+}
+function toggleKeyVisibility() {
+  const input = document.getElementById('proxy-key');
+  const btn = document.getElementById('proxy-key-toggle');
+  const visible = input.type === 'text';
+  input.type = visible ? 'password' : 'text';
+  btn.innerHTML = visible
+    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+}
+function saveProxy() {
+  localStorage.setItem('proxyUrl', document.getElementById('proxy-url').value.trim());
+  localStorage.setItem('proxyKey', document.getElementById('proxy-key').value.trim());
+  closeSettings();
+  refreshAll();
+}
+async function testProxy() {
+  const st = document.getElementById('proxy-status');
+  st.className = 'proxy-status'; st.textContent = 'テスト中...';
+  try {
+    const url = document.getElementById('proxy-url').value.trim();
+    const key = document.getElementById('proxy-key').value.trim();
+    const testUrl = 'https://news.yahoo.co.jp/rss/categories/domestic.xml';
+    const res = await fetch(url + encodeURIComponent(testUrl), {
+      headers: key ? { 'Authorization': 'Bearer ' + key } : {}
+    });
+    if (res.ok) { st.className = 'proxy-status ok'; st.textContent = '接続成功 (' + res.status + ')'; }
+    else { st.className = 'proxy-status ng'; st.textContent = 'エラー: ' + res.status + ' ' + res.statusText; }
+  } catch (e) {
+    st.className = 'proxy-status ng'; st.textContent = '接続失敗: ' + e.message;
+  }
+}
+
+function stampUpdated(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const now = new Date();
+  const t = now.toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+  el.textContent = `${t} 更新`;
+}
+
+function updateClock() {
+  const now = new Date();
+  const opts = { year:'numeric', month:'2-digit', day:'2-digit', weekday:'short',
+                 hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
+  document.getElementById('clock').textContent = now.toLocaleString('ja-JP', opts);
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ===== IP Address (a.apiless.com) =====
+let ipLocation = null;
+async function fetchIP() {
+  const el = document.getElementById('ip-info');
+  try {
+    const res = await fetch('https://a.apiless.com/ip');
+    const d = await res.json();
+    el.textContent = `${d.ip} (${d.city}, ${d.country})`;
+    el.style.color = 'var(--sub)';
+    ipLocation = { lat: parseFloat(d.latitude), lon: parseFloat(d.longitude), name: d.city };
+  } catch (e) {
+    el.textContent = '';
+  }
+}
+
+// ===== JP News (RSS) =====
+const JP_FEEDS = {
+  'yahoo-top':            { url: 'https://news.yahoo.co.jp/rss/topics/top-picks.xml', source: 'Yahoo! 主要', rss: 'https://news.yahoo.co.jp/rss/topics/top-picks.xml', proxy: true },
+  'yahoo-domestic':       { url: 'https://news.yahoo.co.jp/rss/categories/domestic.xml', source: 'Yahoo! 国内', rss: 'https://news.yahoo.co.jp/rss/categories/domestic.xml', proxy: true },
+  'yahoo-world':          { url: 'https://news.yahoo.co.jp/rss/categories/world.xml', source: 'Yahoo! 国際', rss: 'https://news.yahoo.co.jp/rss/categories/world.xml', proxy: true },
+  'yahoo-business':       { url: 'https://news.yahoo.co.jp/rss/categories/business.xml', source: 'Yahoo! 経済', rss: 'https://news.yahoo.co.jp/rss/categories/business.xml', proxy: true },
+  'yahoo-entertainment':  { url: 'https://news.yahoo.co.jp/rss/categories/entertainment.xml', source: 'Yahoo! エンタメ', rss: 'https://news.yahoo.co.jp/rss/categories/entertainment.xml', proxy: true },
+  'yahoo-sports':         { url: 'https://news.yahoo.co.jp/rss/categories/sports.xml', source: 'Yahoo! スポーツ', rss: 'https://news.yahoo.co.jp/rss/categories/sports.xml', proxy: true },
+  'yahoo-it':             { url: 'https://news.yahoo.co.jp/rss/categories/it.xml', source: 'Yahoo! IT', rss: 'https://news.yahoo.co.jp/rss/categories/it.xml', proxy: true },
+  'yahoo-science':        { url: 'https://news.yahoo.co.jp/rss/categories/science.xml', source: 'Yahoo! 科学', rss: 'https://news.yahoo.co.jp/rss/categories/science.xml', proxy: true },
+  'yahoo-life':           { url: 'https://news.yahoo.co.jp/rss/categories/life.xml', source: 'Yahoo! ライフ', rss: 'https://news.yahoo.co.jp/rss/categories/life.xml', proxy: true },
+  'yahoo-local':          { url: 'https://news.yahoo.co.jp/rss/categories/local.xml', source: 'Yahoo! 地域', rss: 'https://news.yahoo.co.jp/rss/categories/local.xml', proxy: true },
+  'reuters-top':          { url: 'https://assets.wor.jp/rss/rdf/reuters/top.rdf', source: 'ロイター', rss: 'https://assets.wor.jp/rss/rdf/reuters/top.rdf' },
+  'nikkei-news':          { url: 'https://assets.wor.jp/rss/rdf/nikkei/news.rdf', source: '日経新聞', rss: 'https://assets.wor.jp/rss/rdf/nikkei/news.rdf' },
+  'nikkei-business':      { url: 'https://assets.wor.jp/rss/rdf/nikkei/business.rdf', source: '日経新聞', rss: 'https://assets.wor.jp/rss/rdf/nikkei/business.rdf' },
+  'nikkei-technology':    { url: 'https://assets.wor.jp/rss/rdf/nikkei/technology.rdf', source: '日経新聞', rss: 'https://assets.wor.jp/rss/rdf/nikkei/technology.rdf' },
+  'nikkei-international': { url: 'https://assets.wor.jp/rss/rdf/nikkei/international.rdf', source: '日経新聞', rss: 'https://assets.wor.jp/rss/rdf/nikkei/international.rdf' },
+  'yomiuri-politics':     { url: 'https://assets.wor.jp/rss/rdf/yomiuri/politics.rdf', source: '読売新聞', rss: 'https://assets.wor.jp/rss/rdf/yomiuri/politics.rdf' },
+  'yomiuri-economy':      { url: 'https://assets.wor.jp/rss/rdf/yomiuri/economy.rdf', source: '読売新聞', rss: 'https://assets.wor.jp/rss/rdf/yomiuri/economy.rdf' },
+  'yomiuri-sports':       { url: 'https://assets.wor.jp/rss/rdf/yomiuri/sports.rdf', source: '読売新聞', rss: 'https://assets.wor.jp/rss/rdf/yomiuri/sports.rdf' },
+  'sankei-politics':      { url: 'https://assets.wor.jp/rss/rdf/sankei/politics.rdf', source: '産経新聞', rss: 'https://assets.wor.jp/rss/rdf/sankei/politics.rdf' },
+  'sankei-economy':       { url: 'https://assets.wor.jp/rss/rdf/sankei/economy.rdf', source: '産経新聞', rss: 'https://assets.wor.jp/rss/rdf/sankei/economy.rdf' },
+  'impress-all':          { url: 'https://www.watch.impress.co.jp/data/rss/1.0/ipw/feed.rdf', source: 'Impress 総合', rss: 'https://www.watch.impress.co.jp/data/rss/1.0/ipw/feed.rdf', proxy: true },
+  'impress-pc':           { url: 'https://pc.watch.impress.co.jp/data/rss/1.0/pcw/feed.rdf', source: 'PC Watch', rss: 'https://pc.watch.impress.co.jp/data/rss/1.0/pcw/feed.rdf', proxy: true },
+  'impress-dc':           { url: 'https://dc.watch.impress.co.jp/data/rss/1.0/dcw/feed.rdf', source: 'DC Watch', rss: 'https://dc.watch.impress.co.jp/data/rss/1.0/dcw/feed.rdf', proxy: true },
+  'impress-ktai':         { url: 'https://k-tai.watch.impress.co.jp/data/rss/1.0/ktw/feed.rdf', source: 'ケータイ Watch', rss: 'https://k-tai.watch.impress.co.jp/data/rss/1.0/ktw/feed.rdf', proxy: true },
+  'impress-cloud':        { url: 'https://cloud.watch.impress.co.jp/data/rss/1.0/clw/feed.rdf', source: 'クラウド Watch', rss: 'https://cloud.watch.impress.co.jp/data/rss/1.0/clw/feed.rdf', proxy: true },
+  'impress-internet':     { url: 'https://internet.watch.impress.co.jp/data/rss/1.0/iw/feed.rdf', source: 'INTERNET Watch', rss: 'https://internet.watch.impress.co.jp/data/rss/1.0/iw/feed.rdf', proxy: true },
+  'impress-game':         { url: 'https://game.watch.impress.co.jp/data/rss/1.0/gmw/feed.rdf', source: 'Game Watch', rss: 'https://game.watch.impress.co.jp/data/rss/1.0/gmw/feed.rdf', proxy: true },
+  'impress-av':           { url: 'https://av.watch.impress.co.jp/data/rss/1.0/avw/feed.rdf', source: 'AV Watch', rss: 'https://av.watch.impress.co.jp/data/rss/1.0/avw/feed.rdf', proxy: true },
+  'impress-travel':       { url: 'https://travel.watch.impress.co.jp/data/rss/1.0/trw/feed.rdf', source: 'トラベル Watch', rss: 'https://travel.watch.impress.co.jp/data/rss/1.0/trw/feed.rdf', proxy: true },
+};
+
+function parseRSSItems(xml, source, rssUrl) {
+  const items = [];
+  // RSS 2.0 (NHK)
+  xml.querySelectorAll('channel > item').forEach(el => {
+    const dateStr = el.querySelector('pubDate')?.textContent || '';
+    items.push({
+      title: el.querySelector('title')?.textContent || '',
+      link: el.querySelector('link')?.textContent || '',
+      date: dateStr,
+      ts: dateStr ? new Date(dateStr).getTime() : 0,
+      source, rssUrl,
+    });
+  });
+  // RSS 1.0 / RDF (wor.jp)
+  if (items.length === 0) {
+    xml.querySelectorAll('item').forEach(el => {
+      const dateStr = el.querySelector('date')?.textContent || '';
+      items.push({
+        title: el.querySelector('title')?.textContent || '',
+        link: el.querySelector('link')?.textContent || '',
+        date: dateStr,
+        ts: dateStr ? new Date(dateStr).getTime() : 0,
+        source, rssUrl,
+      });
+    });
+  }
+  return items;
+}
+
+function formatDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd} ${hh}:${mi}`;
+}
+
+function getSelectedFeeds() {
+  return [...document.querySelectorAll('#jp-feed-checks input:checked')].map(cb => cb.value);
+}
+
+async function fetchJPNews() {
+  const keys = getSelectedFeeds();
+  const el = document.getElementById('jp-news-body');
+  if (keys.length === 0) {
+    el.innerHTML = '<div class="error" style="color:var(--sub)">ニュースソースを選択してください</div>';
+    return;
+  }
+  if (!el.children.length || el.querySelector('.loading')) {
+    el.innerHTML = '<div class="loading">ニュースを取得中...</div>';
+  }
+  try {
+    const results = await Promise.allSettled(
+      keys.map(async key => {
+        const feed = JP_FEEDS[key];
+        const res = await (feed.proxy ? proxyFetch(feed.url) : fetch(feed.url));
+        const text = await res.text();
+        const xml = new DOMParser().parseFromString(text, 'application/xml');
+        return parseRSSItems(xml, feed.source, feed.rss);
+      })
+    );
+    const allItems = results
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value)
+      .sort((a, b) => b.ts - a.ts);
+
+    // Detect & toast new articles
+    const freshItems = detectNewNews(allItems);
+    for (const ni of freshItems.slice(0, 3)) {
+      showToast(ni.source, ni.title, ni.link);
+    }
+    if (freshItems.length > 3) {
+      showToast('News', `他 ${freshItems.length - 3} 件の新着記事`, '#');
+    }
+
+    const jpLimit = parseInt(document.getElementById('jp-news-count').value) || allItems.length;
+    const displayItems = allItems.slice(0, jpLimit);
+
+    if (displayItems.length === 0) {
+      el.innerHTML = '<div class="error">記事が見つかりませんでした</div>';
+      return;
+    }
+    let html = '';
+    for (const item of displayItems) {
+      const dateStr = formatDate(item.ts);
+      const ago = item.ts ? timeAgo(item.ts) : '';
+      html += `
+        <div class="news-item">
+          <a href="${sanitizeUrl(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>
+          <div class="news-meta">
+            <a class="news-domain" href="${sanitizeUrl(item.rssUrl)}" target="_blank" rel="noopener">${escapeHtml(item.source)}</a>
+            ${dateStr ? `<span>${dateStr}</span>` : (ago ? `<span>${ago}</span>` : '')}
+          </div>
+        </div>`;
+    }
+    el.innerHTML = html;
+    stampUpdated('jp-news-updated');
+  } catch (e) {
+    el.innerHTML = '<div class="error">ニュースの取得に失敗しました: ' + e.message + '</div>';
+  }
+}
+
+// ===== Tech News (RSS + Hacker News merged) =====
+async function fetchHNItems() {
+  const topRes = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
+  const topIds = await topRes.json();
+  const ids = topIds.slice(0, 50);
+  const stories = [];
+  const BATCH = 10;
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const batch = await Promise.all(
+      ids.slice(i, i + BATCH).map(id =>
+        fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`).then(r => r.json())
+      )
+    );
+    stories.push(...batch);
+  }
+  return stories.filter(s => s && s.type === 'story').map(s => ({
+    title: s.title,
+    link: s.url || `https://news.ycombinator.com/item?id=${s.id}`,
+    date: '',
+    ts: s.time * 1000,
+    source: 'Hacker News',
+    score: s.score,
+    comments: s.descendants || 0,
+    domain: s.url ? new URL(s.url).hostname.replace('www.', '') : 'news.ycombinator.com',
+  }));
+}
+
+async function fetchTechNews() {
+  const checks = [...document.querySelectorAll('#tech-feed-checks input:checked')].map(cb => cb.value);
+  const el = document.getElementById('tech-news-body');
+  if (checks.length === 0) {
+    el.innerHTML = '<div class="error" style="color:var(--sub)">ソースを選択してください</div>';
+    return;
+  }
+  if (!el.children.length || el.querySelector('.loading')) {
+    el.innerHTML = '<div class="loading">ニュースを取得中...</div>';
+  }
+  try {
+    const fetchers = checks.map(key => {
+      if (key === 'hacker-news') return fetchHNItems();
+      const feed = JP_FEEDS[key];
+      return (feed.proxy ? proxyFetch(feed.url) : fetch(feed.url)).then(r => r.text()).then(text => {
+        const xml = new DOMParser().parseFromString(text, 'application/xml');
+        return parseRSSItems(xml, feed.source, feed.rss);
+      });
+    });
+    const results = await Promise.allSettled(fetchers);
+    const allItems = results
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value)
+      .sort((a, b) => b.ts - a.ts);
+    const limit = parseInt(document.getElementById('tech-news-count').value) || allItems.length;
+    const display = allItems.slice(0, limit);
+
+    if (display.length === 0) {
+      el.innerHTML = '<div class="error">記事が見つかりませんでした</div>';
+      return;
+    }
+    let html = '';
+    for (const item of display) {
+      const dateStr = formatDate(item.ts);
+      const ago = item.ts ? timeAgo(item.ts) : '';
+      const extra = item.score != null
+        ? `<span>${item.score} pts</span><span>${item.comments} comments</span>`
+        : '';
+      const domainTag = item.domain
+        ? `<span class="news-domain">${item.domain}</span>`
+        : '';
+      html += `
+        <div class="news-item">
+          <a href="${sanitizeUrl(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>
+          <div class="news-meta">
+            <a class="news-domain" href="${sanitizeUrl(item.rssUrl)}" target="_blank" rel="noopener">${escapeHtml(item.source)}</a>
+            ${extra}
+            ${dateStr ? `<span>${dateStr}</span>` : (ago ? `<span>${ago}</span>` : '')}
+          </div>
+        </div>`;
+    }
+    el.innerHTML = html;
+    stampUpdated('tech-news-updated');
+  } catch (e) {
+    el.innerHTML = '<div class="error">テックニュースの取得に失敗しました: ' + e.message + '</div>';
+  }
+}
+
+// ===== Settings persistence =====
+function saveSettings() {
+  const settings = {
+    jpFeeds: [...document.querySelectorAll('#jp-feed-checks input')].map(cb => ({ value: cb.value, checked: cb.checked })),
+    techFeeds: [...document.querySelectorAll('#tech-feed-checks input')].map(cb => ({ value: cb.value, checked: cb.checked })),
+    jpCount: document.getElementById('jp-news-count').value,
+    techCount: document.getElementById('tech-news-count').value,
+    intervals: {},
+  };
+  document.querySelectorAll('.interval-select').forEach(sel => {
+    settings.intervals[sel.dataset.section] = sel.value;
+  });
+  localStorage.setItem('dashSettings', JSON.stringify(settings));
+}
+
+function loadSettings() {
+  const raw = localStorage.getItem('dashSettings');
+  if (!raw) return;
+  try {
+    const s = JSON.parse(raw);
+    if (s.jpFeeds) {
+      for (const f of s.jpFeeds) {
+        const cb = document.querySelector(`#jp-feed-checks input[value="${f.value}"]`);
+        if (cb) cb.checked = f.checked;
+      }
+    }
+    if (s.techFeeds) {
+      for (const f of s.techFeeds) {
+        const cb = document.querySelector(`#tech-feed-checks input[value="${f.value}"]`);
+        if (cb) cb.checked = f.checked;
+      }
+    }
+    if (s.jpCount) document.getElementById('jp-news-count').value = s.jpCount;
+    if (s.techCount) document.getElementById('tech-news-count').value = s.techCount;
+    if (s.intervals) {
+      for (const [section, val] of Object.entries(s.intervals)) {
+        const sel = document.querySelector(`.interval-select[data-section="${section}"]`);
+        if (sel) sel.value = val;
+      }
+    }
+  } catch {}
+}
+
+loadSettings();
+
+// Toggle feed settings
+document.querySelectorAll('.toggle-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.id.replace('-toggle', '-checks');
+    const panel = document.getElementById(id);
+    panel.classList.toggle('hidden');
+    btn.classList.toggle('active');
+  });
+});
+
+// Checkbox / count handlers (with persistence)
+document.getElementById('jp-feed-checks').addEventListener('change', () => { saveSettings(); fetchJPNews(); });
+document.getElementById('jp-news-count').addEventListener('change', () => { saveSettings(); fetchJPNews(); });
+document.getElementById('tech-feed-checks').addEventListener('change', () => { saveSettings(); fetchTechNews(); });
+document.getElementById('tech-news-count').addEventListener('change', () => { saveSettings(); fetchTechNews(); });
+
+// ===== Weather (Open-Meteo) =====
+const WMO_CODES = {
+  0:'☀️ 快晴',1:'🌤 晴れ',2:'⛅ 曇りがち',3:'☁️ 曇り',
+  45:'🌫 霧',48:'🌫 着氷霧',
+  51:'🌦 小雨',53:'🌧 雨',55:'🌧 強い雨',
+  56:'🌧 着氷小雨',57:'🌧 着氷雨',
+  61:'🌦 小雨',63:'🌧 雨',65:'🌧 大雨',
+  66:'🌧 着氷小雨',67:'🌧 着氷大雨',
+  71:'🌨 小雪',73:'🌨 雪',75:'🌨 大雪',77:'🌨 霧雪',
+  80:'🌦 にわか雨',81:'🌧 にわか雨',82:'🌧 激しいにわか雨',
+  85:'🌨 にわか雪',86:'🌨 激しいにわか雪',
+  95:'⛈ 雷雨',96:'⛈ 雷雨(雹)',99:'⛈ 激しい雷雨(雹)',
+};
+
+function getLocation() {
+  if (ipLocation) {
+    return Promise.resolve(ipLocation);
+  }
+  return Promise.resolve({ lat: 35.6762, lon: 139.6503, name: '東京' });
+}
+
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`);
+    const d = await res.json();
+    return d.address?.city || d.address?.town || d.address?.village || d.address?.county || '現在地';
+  } catch { return '現在地'; }
+}
+
+async function fetchWeather() {
+  const el = document.getElementById('weather-body');
+  try {
+    const loc = await getLocation();
+    const lat = loc.lat, lon = loc.lon;
+    const locationName = loc.name || await reverseGeocode(lat, lon);
+    document.getElementById('weather-location').textContent = locationName;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+      + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,pressure_msl`
+      + `&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo&forecast_days=2`;
+    const res = await fetch(url);
+    const d = await res.json();
+    const c = d.current;
+    const wmo = WMO_CODES[c.weather_code] || '—';
+    const icon = wmo.split(' ')[0];
+    const desc = wmo.split(' ').slice(1).join(' ');
+
+    // Hourly forecast (next 12 hours)
+    const nowHour = new Date().getHours();
+    const startIdx = d.hourly.time.findIndex(t => new Date(t).getHours() === nowHour && new Date(t).getDate() === new Date().getDate());
+    const forecastItems = [];
+    for (let i = startIdx + 1; i < startIdx + 13 && i < d.hourly.time.length; i++) {
+      const dt = new Date(d.hourly.time[i]);
+      const h = dt.getHours();
+      const fc = WMO_CODES[d.hourly.weather_code[i]] || '—';
+      forecastItems.push(`
+        <div class="forecast-item">
+          <div class="time">${h}時</div>
+          <div style="font-size:1.2rem">${fc.split(' ')[0]}</div>
+          <div class="temp">${Math.round(d.hourly.temperature_2m[i])}°</div>
+        </div>`);
+    }
+
+    el.innerHTML = `
+      <div class="weather-main">
+        <div class="weather-icon">${icon}</div>
+        <div>
+          <div class="weather-temp">${Math.round(c.temperature_2m)}°C</div>
+          <div class="weather-desc">${desc}</div>
+        </div>
+      </div>
+      <div class="weather-details">
+        <div class="weather-detail"><div class="label">体感温度</div>${Math.round(c.apparent_temperature)}°C</div>
+        <div class="weather-detail"><div class="label">湿度</div>${c.relative_humidity_2m}%</div>
+        <div class="weather-detail"><div class="label">風速</div>${c.wind_speed_10m} km/h</div>
+        <div class="weather-detail"><div class="label">気圧</div>${Math.round(c.pressure_msl)} hPa</div>
+      </div>
+      <div class="weather-forecast">${forecastItems.join('')}</div>`;
+    document.getElementById('header-weather').textContent = `${icon} ${Math.round(c.temperature_2m)}°C ${locationName}`;
+    stampUpdated('weather-updated');
+  } catch (e) {
+    el.innerHTML = `<div class="error">天気情報の取得に失敗しました: ${e.message}</div>`;
+  }
+}
+
+// ===== Exchange Rates (Frankfurter) =====
+async function fetchFX() {
+  const el = document.getElementById('fx-body');
+  try {
+    const [latestRes, prevRes] = await Promise.all([
+      fetch('https://api.frankfurter.dev/v1/latest?from=JPY&to=USD,EUR,GBP,CNY,KRW,AUD,CHF'),
+      fetch(`https://api.frankfurter.dev/v1/${getPrevBusinessDay()}?from=JPY&to=USD,EUR,GBP,CNY,KRW,AUD,CHF`),
+    ]);
+    const latest = await latestRes.json();
+    const prev = await prevRes.json();
+
+    const names = {
+      USD:'米ドル',EUR:'ユーロ',GBP:'英ポンド',
+      CNY:'人民元',KRW:'韓国ウォン',AUD:'豪ドル',CHF:'スイスフラン'
+    };
+    const flags = {USD:'🇺🇸',EUR:'🇪🇺',GBP:'🇬🇧',CNY:'🇨🇳',KRW:'🇰🇷',AUD:'🇦🇺',CHF:'🇨🇭'};
+
+    let html = '';
+    for (const [cur, rate] of Object.entries(latest.rates)) {
+      // Convert: 1 JPY = X foreign → show as 1 foreign = Y JPY
+      const jpyRate = (1 / rate).toFixed(2);
+      const prevRate = prev.rates[cur] ? (1 / prev.rates[cur]).toFixed(2) : null;
+      const diff = prevRate ? (jpyRate - prevRate).toFixed(2) : null;
+      const pct = prevRate ? ((jpyRate - prevRate) / prevRate * 100).toFixed(2) : null;
+      const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
+      const sign = diff > 0 ? '+' : '';
+      html += `
+        <div class="rate-row">
+          <div>
+            <div class="rate-pair">${flags[cur] || ''} ${cur}/JPY</div>
+            <div style="color:var(--sub);font-size:.75rem">${names[cur] || cur}</div>
+          </div>
+          <div style="display:flex;align-items:baseline">
+            <span class="rate-value">¥${jpyRate}</span>
+            ${diff !== null ? `<span class="rate-change ${dir}">${sign}${diff} (${sign}${pct}%)</span>` : ''}
+          </div>
+        </div>`;
+    }
+    el.innerHTML = html;
+    stampUpdated('fx-updated');
+  } catch (e) {
+    el.innerHTML = `<div class="error">為替情報の取得に失敗しました: ${e.message}</div>`;
+  }
+}
+
+function getPrevBusinessDay() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// ===== Crypto Market (CoinGecko) =====
+async function fetchMarket() {
+  const el = document.getElementById('market-body');
+  try {
+    const ids = 'bitcoin,ethereum,solana,ripple,cardano,dogecoin';
+    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=jpy&ids=${ids}&order=market_cap_desc&sparkline=false&price_change_percentage=24h`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    let html = '';
+    for (const coin of data) {
+      const pct = coin.price_change_percentage_24h;
+      const dir = pct >= 0 ? 'up' : 'down';
+      const sign = pct >= 0 ? '+' : '';
+      const price = coin.current_price >= 1
+        ? coin.current_price.toLocaleString('ja-JP')
+        : coin.current_price.toFixed(4);
+      html += `
+        <div class="stock-row">
+          <div>
+            <div class="stock-name">${coin.name}</div>
+            <div class="stock-symbol">${coin.symbol.toUpperCase()}</div>
+          </div>
+          <div class="stock-price">
+            <span class="value">¥${price}</span>
+            <span class="change ${dir}">${sign}${pct ? pct.toFixed(2) : '0.00'}%</span>
+          </div>
+        </div>`;
+    }
+    el.innerHTML = html;
+    stampUpdated('market-updated');
+  } catch (e) {
+    el.innerHTML = `<div class="error">マーケット情報の取得に失敗しました: ${e.message}</div>`;
+  }
+}
+
+
+function timeAgo(ts) {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return `${sec}秒前`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}分前`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}時間前`;
+  return `${Math.floor(hr / 24)}日前`;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function sanitizeUrl(url) {
+  if (!url) return '#';
+  try {
+    const u = new URL(url);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
+  } catch {}
+  return '#';
+}
+
+// ===== Toast notifications =====
+const toastContainer = document.getElementById('toast-container');
+function showToast(source, title, link, duration) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<div class="toast-source">${escapeHtml(source)}</div><a href="${sanitizeUrl(link)}" target="_blank" rel="noopener">${escapeHtml(title)}</a>`;
+  toastContainer.prepend(el);
+  setTimeout(() => {
+    el.classList.add('out');
+    el.addEventListener('animationend', () => el.remove());
+  }, duration || 6000);
+  // Max 5 toasts
+  while (toastContainer.children.length > 5) toastContainer.lastChild.remove();
+}
+
+// ===== News change detection =====
+let knownNewsKeys = new Set();
+let newsInitialized = false;
+const MAX_KNOWN_NEWS = 3000;
+
+function detectNewNews(items) {
+  const newItems = [];
+  for (const item of items) {
+    const key = item.link || item.title;
+    if (!knownNewsKeys.has(key)) {
+      knownNewsKeys.add(key);
+      if (newsInitialized) newItems.push(item);
+    }
+  }
+  if (!newsInitialized) newsInitialized = true;
+  if (knownNewsKeys.size > MAX_KNOWN_NEWS) {
+    const keep = [...knownNewsKeys].slice(-1000);
+    knownNewsKeys = new Set(keep);
+  }
+  return newItems;
+}
+
+// ===== Per-section auto-refresh =====
+const sectionTimers = {};
+const sectionFns = {
+  news: fetchJPNews,
+  tech: fetchTechNews,
+  weather: fetchWeather,
+  fx: fetchFX,
+  market: fetchMarket,
+};
+
+function setupTimer(section) {
+  if (sectionTimers[section]) clearInterval(sectionTimers[section]);
+  const sel = document.querySelector(`.interval-select[data-section="${section}"]`);
+  if (!sel) return;
+  const sec = parseInt(sel.value);
+  if (sec > 0) {
+    sectionTimers[section] = setInterval(sectionFns[section], sec * 1000);
+  }
+}
+
+document.querySelectorAll('.interval-select').forEach(sel => {
+  sel.addEventListener('change', () => { saveSettings(); setupTimer(sel.dataset.section); });
+});
+
+// ===== Keyboard shortcuts =====
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'r' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); refreshAll(); return; }
+  const cards = document.querySelectorAll('.card');
+  const idx = parseInt(e.key);
+  if (idx >= 1 && idx <= cards.length) {
+    e.preventDefault();
+    cards[idx - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+
+function refreshAll() {
+  fetchIP().then(() => fetchWeather());
+  fetchFX();
+  fetchMarket();
+  fetchJPNews();
+  fetchTechNews();
+}
+
+// Initial load
+fetchIP().then(() => fetchWeather());
+fetchFX();
+fetchMarket();
+fetchJPNews();
+fetchTechNews();
+
+// Start per-section timers
+Object.keys(sectionFns).forEach(setupTimer);
+
+// ===== Theme toggle =====
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  document.getElementById('theme-icon-sun').style.display = theme === 'dark' ? 'none' : 'block';
+  document.getElementById('theme-icon-moon').style.display = theme === 'dark' ? 'block' : 'none';
+  document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#ffffff' : '#1a2736';
+}
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+applyTheme(localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
+</script>
+</body>
+</html>
