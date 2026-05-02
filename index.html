@@ -908,7 +908,7 @@ async function fetchWeather() {
         <div class="weather-detail"><div class="label">気圧</div>${Math.round(c.pressure_msl)} hPa</div>
       </div>
       <div class="weather-forecast">${forecastItems.join('')}</div>`;
-    document.getElementById('header-weather').textContent = `${icon} ${Math.round(c.temperature_2m)}°C ${locationName}`;
+    document.getElementById('header-weather').innerHTML = `<span style="font-size:1.4rem;vertical-align:middle">${icon}</span> ${Math.round(c.temperature_2m)}°C ${locationName}`;
     stampUpdated('weather-updated');
   } catch (e) {
     el.innerHTML = `<div class="error">天気情報の取得に失敗しました: ${e.message}</div>`;
