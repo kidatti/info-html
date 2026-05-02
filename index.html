@@ -272,6 +272,7 @@
     <h4 style="font-size:.85rem;margin:0 0 8px;color:var(--sub)">データ</h4>
     <div class="modal-actions" style="justify-content:flex-start">
       <button onclick="resetSettings()" style="color:var(--red);border-color:var(--red)">設定を初期化</button>
+      <button onclick="clearCache()" style="color:var(--red);border-color:var(--red)">キャッシュクリア</button>
       <span style="flex:1"></span>
       <button onclick="closeSettings()">閉じる</button>
     </div>
@@ -469,6 +470,17 @@ function resetSettings() {
   localStorage.removeItem('proxyUrl');
   localStorage.removeItem('proxyKey');
   localStorage.removeItem('theme');
+  closeSettings();
+  location.reload();
+}
+async function clearCache() {
+  if (!confirm('キャッシュをクリアします。よろしいですか？')) return;
+  const keys = await caches.keys();
+  await Promise.all(keys.map(k => caches.delete(k)));
+  if (navigator.serviceWorker) {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r => r.unregister()));
+  }
   closeSettings();
   location.reload();
 }
