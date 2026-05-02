@@ -920,7 +920,10 @@ async function fetchFX() {
     const flags = {USD:'🇺🇸',EUR:'🇪🇺',GBP:'🇬🇧',AUD:'🇦🇺',CHF:'🇨🇭'};
 
     let html = '';
-    for (const [cur, rate] of Object.entries(latest.rates)) {
+    const order = ['USD','EUR','GBP','AUD','CHF'];
+    for (const cur of order) {
+      const rate = latest.rates[cur];
+      if (!rate) continue;
       // Convert: 1 JPY = X foreign → show as 1 foreign = Y JPY
       const jpyRate = (1 / rate).toFixed(2);
       const prevRate = prev.rates[cur] ? (1 / prev.rates[cur]).toFixed(2) : null;
