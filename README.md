@@ -6,7 +6,8 @@
 
 ### GitHub Pages で開く
 
-https://kidatti.github.io/info-html/
+- Dashboard: https://kidatti.github.io/info-html/
+- Clock: https://kidatti.github.io/info-html/clock.html
 
 ## 表示内容
 
