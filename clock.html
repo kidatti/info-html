@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clock</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0d1117;--text:#e6edf3;--sub:#8b949e;--accent:#1a8fc4;--border:#30363d}
+  [data-theme="light"]{--bg:#f8f9fa;--text:#1a1a2e;--sub:#6c757d;--accent:#0077b6;--border:#d0d7de}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    height:100vh;width:100vw;overflow:hidden;user-select:none;
+    transition:background .3s,color .3s;
+  }
+  .time{
+    font-size:min(20vw,200px);font-weight:700;
+    font-variant-numeric:tabular-nums;letter-spacing:.02em;
+    line-height:1;
+  }
+  .time .seconds{
+    font-size:min(10vw,100px);font-weight:300;color:var(--text);
+  }
+  .date{
+    font-size:min(4vw,36px);font-weight:400;color:var(--sub);
+    margin-top:24px;
+  }
+  .controls{
+    position:fixed;top:16px;right:16px;display:flex;gap:12px;align-items:center;
+  }
+  .controls button{
+    background:none;border:none;cursor:pointer;padding:4px;line-height:1;
+    opacity:.6;transition:opacity .2s;
+  }
+  .controls button:hover{opacity:1}
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+    z-index:200;align-items:center;justify-content:center;
+  }
+  .modal-overlay.open{display:flex}
+  .modal{
+    background:var(--bg);border:1px solid var(--border);border-radius:12px;
+    padding:20px 24px;max-width:320px;width:90%;
+  }
+  .modal h3{font-size:.95rem;margin-bottom:16px;color:var(--text)}
+  .modal label{
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:.85rem;color:var(--text);padding:8px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .modal label:last-of-type{border-bottom:none}
+  .modal select{
+    background:var(--bg);color:var(--text);border:1px solid var(--border);
+    border-radius:6px;padding:4px 8px;font-size:.8rem;
+  }
+  .toggle-switch{
+    position:relative;width:40px;height:22px;
+  }
+  .toggle-switch input{opacity:0;width:0;height:0}
+  .toggle-switch .slider{
+    position:absolute;inset:0;background:var(--border);border-radius:11px;
+    cursor:pointer;transition:.2s;
+  }
+  .toggle-switch .slider::before{
+    content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;
+    background:#fff;border-radius:50%;transition:.2s;
+  }
+  .toggle-switch input:checked+.slider{background:var(--accent)}
+  .toggle-switch input:checked+.slider::before{transform:translateX(18px)}
+  .modal-actions{display:flex;justify-content:flex-end;margin-top:16px}
+  .modal-actions button{
+    padding:6px 16px;border-radius:6px;font-size:.8rem;cursor:pointer;
+    border:1px solid var(--border);background:none;color:var(--text);
+  }
+  .modal-actions button:hover{opacity:.85}
+</style>
+</head>
+<body>
+<div id="weekday-top" class="date"></div>
+<div class="time" id="time"></div>
+<div class="date" id="date"></div>
+<div id="weekday-bottom" class="date"></div>
+<div class="controls">
+  <button id="theme-toggle" aria-label="テーマ切替"><svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg><svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  <button id="fullscreen-toggle" aria-label="フルスクリーン"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+  <button id="settings-btn" aria-label="設定"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+</div>
+
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 設定</h3>
+    <label>秒数の表示<span class="toggle-switch"><input type="checkbox" id="opt-seconds" checked><span class="slider"></span></span></label>
+    <label>時間表記<select id="opt-hour"><option value="24">24時間</option><option value="12">12時間</option></select></label>
+    <label>年月の表示<span class="toggle-switch"><input type="checkbox" id="opt-yearmonth" checked><span class="slider"></span></span></label>
+    <label>曜日の表示<span class="toggle-switch"><input type="checkbox" id="opt-weekday" checked><span class="slider"></span></span></label>
+    <label>曜日の位置<select id="opt-weekday-pos"><option value="bottom">下</option><option value="top">上</option><option value="inline">日付の横</option></select></label>
+    <label>言語<select id="opt-lang"><option value="ja">日本語</option><option value="en">English</option></select></label>
+    <div class="modal-actions">
+      <button onclick="closeSettings()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLOCK_SETTINGS_KEY = 'clockSettings';
+let settings = {
+  showSeconds: true,
+  hour12: false,
+  showYearMonth: true,
+  showWeekday: true,
+  lang: 'ja',
+  weekdayPos: 'bottom',
+};
+
+function loadSettings() {
+  const raw = localStorage.getItem(CLOCK_SETTINGS_KEY);
+  if (raw) {
+    try { Object.assign(settings, JSON.parse(raw)); } catch {}
+  }
+  document.getElementById('opt-seconds').checked = settings.showSeconds;
+  document.getElementById('opt-hour').value = settings.hour12 ? '12' : '24';
+  document.getElementById('opt-yearmonth').checked = settings.showYearMonth;
+  document.getElementById('opt-weekday').checked = settings.showWeekday;
+  document.getElementById('opt-lang').value = settings.lang;
+  document.getElementById('opt-weekday-pos').value = settings.weekdayPos;
+}
+
+function saveSettings() {
+  settings.showSeconds = document.getElementById('opt-seconds').checked;
+  settings.hour12 = document.getElementById('opt-hour').value === '12';
+  settings.showYearMonth = document.getElementById('opt-yearmonth').checked;
+  settings.showWeekday = document.getElementById('opt-weekday').checked;
+  settings.lang = document.getElementById('opt-lang').value;
+  settings.weekdayPos = document.getElementById('opt-weekday-pos').value;
+  localStorage.setItem(CLOCK_SETTINGS_KEY, JSON.stringify(settings));
+  update();
+}
+
+function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+
+document.getElementById('settings-btn').addEventListener('click', () => {
+  document.getElementById('settings-modal').classList.add('open');
+});
+document.getElementById('settings-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+document.querySelectorAll('#settings-modal input, #settings-modal select').forEach(el => {
+  el.addEventListener('change', saveSettings);
+});
+
+function update() {
+  const now = new Date();
+  let h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+
+  let period = '';
+  if (settings.hour12) {
+    period = h >= 12 ? ' PM' : ' AM';
+    h = h % 12 || 12;
+  }
+  const hStr = String(h).padStart(2, '0');
+
+  if (settings.showSeconds) {
+    document.getElementById('time').innerHTML = `${hStr}:${m}<span class="seconds">:${s}</span>${period}`;
+  } else {
+    document.getElementById('time').textContent = `${hStr}:${m}${period}`;
+  }
+
+  const isEn = settings.lang === 'en';
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let dateStr = '';
+  if (settings.showYearMonth) {
+    dateStr = isEn
+      ? `${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`
+      : `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+  } else {
+    dateStr = isEn
+      ? `${months[now.getMonth()]} ${now.getDate()}`
+      : `${now.getMonth() + 1}月${now.getDate()}日`;
+  }
+  let weekdayStr = '';
+  if (settings.showWeekday) {
+    const days = isEn
+      ? ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+      : ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
+    weekdayStr = days[now.getDay()];
+  }
+
+  const topEl = document.getElementById('weekday-top');
+  const bottomEl = document.getElementById('weekday-bottom');
+  const pos = settings.weekdayPos;
+
+  if (settings.showWeekday && pos === 'inline') {
+    document.getElementById('date').textContent = `${dateStr} ${weekdayStr}`;
+    topEl.style.display = 'none';
+    bottomEl.style.display = 'none';
+  } else {
+    document.getElementById('date').textContent = dateStr;
+    if (settings.showWeekday && pos === 'top') {
+      topEl.textContent = weekdayStr;
+      topEl.style.display = '';
+      bottomEl.style.display = 'none';
+    } else if (settings.showWeekday) {
+      bottomEl.textContent = weekdayStr;
+      bottomEl.style.display = '';
+      topEl.style.display = 'none';
+    } else {
+      topEl.style.display = 'none';
+      bottomEl.style.display = 'none';
+    }
+  }
+}
+
+loadSettings();
+setInterval(update, 1000);
+update();
+
+// Theme
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  document.getElementById('theme-icon-sun').style.display = theme === 'dark' ? 'none' : 'block';
+  document.getElementById('theme-icon-moon').style.display = theme === 'dark' ? 'block' : 'none';
+}
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+applyTheme(localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+
+// Fullscreen
+document.getElementById('fullscreen-toggle').addEventListener('click', () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+});
+</script>
+</body>
+</html>
