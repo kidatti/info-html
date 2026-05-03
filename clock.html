@@ -18,11 +18,41 @@
   .time{
     font-size:min(20vw,200px);font-weight:700;
     font-variant-numeric:tabular-nums;letter-spacing:.02em;
-    line-height:1;
+    line-height:1;display:flex;align-items:baseline;
   }
-  .time .seconds{
-    font-size:min(10vw,100px);font-weight:300;color:var(--text);
+  .time .seconds{font-size:min(10vw,100px);font-weight:300}
+  .time .period{font-size:min(5vw,50px);font-weight:300;color:var(--sub);margin-left:8px}
+  .digit-wrap{
+    display:inline-block;position:relative;overflow:hidden;
+    height:1em;vertical-align:baseline;
   }
+  .digit-wrap .d-cur,.digit-wrap .d-next{
+    display:block;
+  }
+  /* flip */
+  @keyframes anim-flip{
+    0%{transform:rotateX(0);opacity:1}
+    49%{transform:rotateX(-90deg);opacity:0}
+    50%{transform:rotateX(90deg);opacity:0}
+    100%{transform:rotateX(0);opacity:1}
+  }
+  .digit-wrap.do-flip .d-cur{animation:anim-flip .4s ease-in-out forwards}
+  /* slide */
+  @keyframes anim-slide{
+    0%{transform:translateY(0)}
+    50%{transform:translateY(-100%)}
+    50.01%{transform:translateY(100%)}
+    100%{transform:translateY(0)}
+  }
+  .digit-wrap.do-slide .d-cur{animation:anim-slide .4s ease-in-out forwards}
+  /* fade */
+  @keyframes anim-fade{
+    0%{opacity:1}
+    50%{opacity:0}
+    100%{opacity:1}
+  }
+  .digit-wrap.do-fade .d-cur{animation:anim-fade .4s ease-in-out forwards}
+
   .date{
     font-size:min(4vw,36px);font-weight:400;color:var(--sub);
     margin-top:24px;
@@ -55,9 +85,7 @@
     background:var(--bg);color:var(--text);border:1px solid var(--border);
     border-radius:6px;padding:4px 8px;font-size:.8rem;
   }
-  .toggle-switch{
-    position:relative;width:40px;height:22px;
-  }
+  .toggle-switch{position:relative;width:40px;height:22px}
   .toggle-switch input{opacity:0;width:0;height:0}
   .toggle-switch .slider{
     position:absolute;inset:0;background:var(--border);border-radius:11px;
@@ -97,6 +125,7 @@
     <label>曜日の表示<span class="toggle-switch"><input type="checkbox" id="opt-weekday" checked><span class="slider"></span></span></label>
     <label>曜日の位置<select id="opt-weekday-pos"><option value="bottom">下</option><option value="top">上</option><option value="inline">日付の横</option></select></label>
     <label>言語<select id="opt-lang"><option value="ja">日本語</option><option value="en">English</option></select></label>
+    <label>アニメーション<select id="opt-anim"><option value="none">なし</option><option value="flip">めくり</option><option value="slide">スライド</option><option value="fade">フェード</option></select></label>
     <div class="modal-actions">
       <button onclick="closeSettings()">閉じる</button>
     </div>
@@ -112,6 +141,7 @@ let settings = {
   showWeekday: true,
   lang: 'ja',
   weekdayPos: 'bottom',
+  anim: 'none',
 };
 
 function loadSettings() {
@@ -125,6 +155,7 @@ function loadSettings() {
   document.getElementById('opt-weekday').checked = settings.showWeekday;
   document.getElementById('opt-lang').value = settings.lang;
   document.getElementById('opt-weekday-pos').value = settings.weekdayPos;
+  document.getElementById('opt-anim').value = settings.anim;
 }
 
 function saveSettings() {
@@ -134,7 +165,9 @@ function saveSettings() {
   settings.showWeekday = document.getElementById('opt-weekday').checked;
   settings.lang = document.getElementById('opt-lang').value;
   settings.weekdayPos = document.getElementById('opt-weekday-pos').value;
+  settings.anim = document.getElementById('opt-anim').value;
   localStorage.setItem(CLOCK_SETTINGS_KEY, JSON.stringify(settings));
+  prevTimeStr = '';
   update();
 }
 
@@ -150,6 +183,59 @@ document.querySelectorAll('#settings-modal input, #settings-modal select').forEa
   el.addEventListener('change', saveSettings);
 });
 
+let prevTimeStr = '';
+
+function renderTime(timeStr, secStart) {
+  const timeEl = document.getElementById('time');
+  const animClass = settings.anim !== 'none' ? 'do-' + settings.anim : '';
+
+  if (!prevTimeStr || prevTimeStr.length !== timeStr.length) {
+    // Full rebuild
+    let html = '';
+    for (let i = 0; i < timeStr.length; i++) {
+      const ch = timeStr[i];
+      const isSec = secStart >= 0 && i >= secStart && ch !== ':' && ch !== ' ';
+      const cls = isSec ? 'seconds' : '';
+      if (ch === ':') {
+        html += `<span class="${i >= secStart && secStart >= 0 ? 'seconds' : ''}">${ch}</span>`;
+      } else if (ch === ' ' || ch === 'A' || ch === 'P' || ch === 'M') {
+        html += `<span class="period">${ch}</span>`;
+      } else {
+        html += `<span class="digit-wrap ${cls}" data-idx="${i}"><span class="d-cur">${ch}</span></span>`;
+      }
+    }
+    timeEl.innerHTML = html;
+    prevTimeStr = timeStr;
+    return;
+  }
+
+  // Update only changed digits with animation
+  for (let i = 0; i < timeStr.length; i++) {
+    if (timeStr[i] === prevTimeStr[i]) continue;
+    const ch = timeStr[i];
+    if (ch === ':' || ch === ' ' || ch === 'A' || ch === 'P' || ch === 'M') continue;
+    const wrap = timeEl.querySelector(`.digit-wrap[data-idx="${i}"]`);
+    if (!wrap) continue;
+    const cur = wrap.querySelector('.d-cur');
+    if (!cur) continue;
+
+    if (animClass) {
+      // Remove old animation class and force reflow
+      wrap.classList.remove('do-flip', 'do-slide', 'do-fade');
+      void wrap.offsetWidth;
+      // Update text halfway through animation
+      const newVal = ch;
+      setTimeout(() => { cur.textContent = newVal; }, 200);
+      wrap.classList.add(animClass);
+      // Clean up class after animation
+      setTimeout(() => { wrap.classList.remove(animClass); }, 400);
+    } else {
+      cur.textContent = ch;
+    }
+  }
+  prevTimeStr = timeStr;
+}
+
 function update() {
   const now = new Date();
   let h = now.getHours();
@@ -163,11 +249,15 @@ function update() {
   }
   const hStr = String(h).padStart(2, '0');
 
+  let timeStr = hStr + ':' + m;
+  let secStart = -1;
   if (settings.showSeconds) {
-    document.getElementById('time').innerHTML = `${hStr}:${m}<span class="seconds">:${s}</span>${period}`;
-  } else {
-    document.getElementById('time').textContent = `${hStr}:${m}${period}`;
+    secStart = timeStr.length;
+    timeStr += ':' + s;
   }
+  timeStr += period;
+
+  renderTime(timeStr, secStart);
 
   const isEn = settings.lang === 'en';
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
