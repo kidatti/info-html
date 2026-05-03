@@ -1122,6 +1122,16 @@ fetchTechNews();
 // Start per-section timers
 Object.keys(sectionFns).forEach(setupTimer);
 
+// Refresh when page becomes visible again (PWA resume, tab switch)
+let lastVisibleTime = Date.now();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const elapsed = Date.now() - lastVisibleTime;
+    if (elapsed > 60000) refreshAll();
+    lastVisibleTime = Date.now();
+  }
+});
+
 // ===== Theme toggle =====
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
